@@ -183,6 +183,7 @@ model Vote {
   createdAt  DateTime @default(now())
 
   // Un utilisateur ne peut voter qu'une fois par duel
+  @@unique([voterId, postId])
   @@unique([voterId, duelId])
   @@index([postId])
   @@index([duelId])
