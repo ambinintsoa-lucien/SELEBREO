@@ -8,28 +8,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Récupérer le projet
+      - name: Checkout du projet
         uses: actions/checkout@v4
 
-      - name: Installer PostgreSQL 16
+      - name: Installer PostgreSQL
         run: |
-          sudo apt update
-          sudo apt install -y postgresql-client-16
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
 
-      - name: Restaurer la base vers Neon
+      - name: Vérifier le backup
+        run: |
+          ls -lh backend/selebreo_backup.dump
+
+      - name: Restaurer la base Neon
         env:
-          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           pg_restore \
-            --dbname="$NEON_DATABASE_URL" \
+            --dbname="$DATABASE_URL" \
             --no-owner \
             --no-acl \
             --clean \
             --if-exists \
-            selebreo_backup.dump
-
-      - name: Vérifier la restauration
-        env:
-          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
-        run: |
-          psql "$NEON_DATABASE_URL" -c "\dt"
+            backend/selebreo_backup.dump
