@@ -1,35 +1,27 @@
-name: Restore SELEBREO database to Neon
+name: Test Neon Prisma
 
 on:
   workflow_dispatch:
 
 jobs:
-  restore:
+  test-neon:
     runs-on: ubuntu-latest
 
     steps:
       - name: Récupérer le projet
         uses: actions/checkout@v4
 
-      - name: Installer PostgreSQL 16
-        run: |
-          sudo apt update
-          sudo apt install -y postgresql-client-16
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-      - name: Restaurer la base vers Neon
-        env:
-          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
-        run: |
-          pg_restore \
-            --dbname="$NEON_DATABASE_URL" \
-            --no-owner \
-            --no-acl \
-            --clean \
-            --if-exists \
-            selebreo_backup.dump
+      - name: Installer les dépendances backend
+        working-directory: backend
+        run: npm ci
 
-      - name: Vérifier la restauration
+      - name: Tester Prisma avec Neon
+        working-directory: backend
         env:
-          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
-        run: |
-          psql "$NEON_DATABASE_URL" -c "\dt"
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx prisma db pull
