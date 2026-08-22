@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+
+  html,
+  body,
+  #root {
+    @apply h-full m-0;
+  }
+
+  body {
+    @apply bg-[#050505] text-blanc;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer components {
+
+  /* Cadre "téléphone" : centré sur desktop, pleine largeur sur mobile réel */
+  .app-frame {
+    @apply w-full max-w-phone min-h-screen mx-auto bg-noir relative overflow-x-hidden;
+  }
+
+  @media (min-width: 431px) {
+    .app-frame {
+      @apply rounded-[32px] shadow-2xl;
+      min-height: 90vh;
+      margin-top: 5vh;
+    }
+  }
+
+  .screen {
+    @apply min-h-full flex flex-col p-5 pb-24;
+  }
+
+  .screen-no-nav {
+    @apply min-h-full flex flex-col p-5;
+  }
+
+  .btn-primary {
+    @apply w-full h-[52px] bg-jaune text-noir font-bold rounded-xl active:opacity-85 disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply w-full h-[52px] bg-[#1c1c1c] text-blanc font-semibold rounded-xl active:opacity-85 disabled:opacity-50;
+  }
+
+  .input-field {
+    @apply w-full h-12 bg-blanc text-noir placeholder-grisfonce rounded-lg px-4 text-[15px] outline-none;
+  }
+
+  .card {
+    @apply bg-surface rounded-card p-3.5;
+  }
+
+  /* Menu inférieur toujours visible */
+  .bottom-nav {
+    @apply fixed bottom-0 left-1/2 h-[68px] bg-noir border-t border-white/10 flex items-center justify-around;
+    width: min(100%, 430px);
+    transform: translateX(-50%);
+    z-index: 1000;
+  }
+
+  .bottom-nav a {
+    @apply text-grisfonce no-underline text-[11px] flex flex-col items-center gap-1;
+  }
+
+  .bottom-nav a.active {
+    @apply text-jaune;
+  }
+
+  .bottom-nav .create-btn {
+    @apply bg-jaune text-noir w-12 h-12 rounded-full flex items-center justify-center text-2xl font-black -mt-6;
+  }
+
+  .avatar {
+    @apply rounded-full flex-shrink-0 flex items-center justify-center font-extrabold text-noir;
+  }
+
+  .back-btn {
+    @apply bg-transparent border-none text-blanc text-xl cursor-pointer w-8 text-left;
+  }
+}

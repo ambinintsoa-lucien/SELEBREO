@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: selebreo-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: selebreo
+      POSTGRES_PASSWORD: selebreo
+      POSTGRES_DB: selebreo_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - selebreo_pgdata:/var/lib/postgresql/data
+
+volumes:
+  selebreo_pgdata:

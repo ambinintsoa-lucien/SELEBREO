@@ -1,0 +1,386 @@
+// ============================================================
+// SELEBREO — schéma de base de données (Prisma / PostgreSQL)
+// Couvre : users, posts, media, categories, likes, comments,
+// followers, votes, rankings, competition_periods,
+// competition_stages, duels, notifications, reports,
+// blocked_users, admin_actions
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------
+// Utilisateurs & profils
+// ----------------------------
+
+enum UserRole {
+  USER
+  ADMIN
+  MODERATOR
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+model User {
+  id            String     @id @default(uuid())
+  email         String     @unique
+  username      String     @unique
+  passwordHash  String     // jamais le mot de passe en clair
+  fullName      String?
+  bio           String?
+  country       String?
+  avatarUrl     String?
+  primaryTheme  Category?  @relation("PrimaryTheme", fields: [primaryThemeId], references: [id])
+  primaryThemeId String?
+  role          UserRole   @default(USER)
+  status        UserStatus @default(ACTIVE)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  posts             Post[]
+  comments          Comment[]
+  likes             Like[]
+  votes             Vote[]            @relation("VoterUser")
+  followers         Follow[]          @relation("Followed")
+  following         Follow[]          @relation("Follower")
+  notifications     Notification[]    @relation("NotificationRecipient")
+  reportsFiled      Report[]          @relation("ReportedBy")
+  reportsReceived   Report[]          @relation("ReportedUser")
+  blockedByMe       BlockedUser[]     @relation("Blocker")
+  blockedMe         BlockedUser[]     @relation("Blocked")
+  adminActions      AdminAction[]     @relation("ActionedBy")
+  rankingEntries    RankingEntry[]
+  duelsAsA          Duel[]            @relation("DuelParticipantA")
+  duelsAsB          Duel[]            @relation("DuelParticipantB")
+  duelsWon          Duel[]            @relation("DuelWinner")
+
+  @@index([status])
+}
+
+// ----------------------------
+// Thèmes / catégories
+// ----------------------------
+
+model Category {
+  id    String @id @default(uuid())
+  name  String @unique
+  // Liste retenue (cahier des charges v2) :
+  // Humour, Musique, Danse, Sport, Études, Technologie, Art, Gaming,
+  // Mode, Lifestyle, Amour, Divertissement, Autre
+
+  posts         Post[]
+  usersPrimary  User[]  @relation("PrimaryTheme")
+}
+
+// ----------------------------
+// Publications (vidéo + description uniquement)
+// ----------------------------
+
+model Post {
+  id           String   @id @default(uuid())
+  author       User     @relation(fields: [authorId], references: [id])
+  authorId     String
+  videoUrl     String   // stockage S3
+  thumbnailUrl String?
+  description  String   @db.VarChar(220)
+  hashtags     String[] // ex: ["humour", "challenge"]
+  category     Category @relation(fields: [categoryId], references: [id])
+  categoryId   String
+  visibility   PostVisibility @default(PUBLIC)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  likes           Like[]
+  comments        Comment[]
+  votes           Vote[]
+  rankingEntries  RankingEntry[]
+  reports         Report[]
+
+  @@index([authorId])
+  @@index([categoryId])
+  @@index([createdAt])
+}
+
+enum PostVisibility {
+  PUBLIC
+  FOLLOWERS_ONLY
+  PRIVATE
+}
+
+// ----------------------------
+// Interactions sociales
+// ----------------------------
+
+model Like {
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  post      Post     @relation(fields: [postId], references: [id])
+  postId    String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId]) // empêche un like en double
+  @@index([postId])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  post      Post     @relation(fields: [postId], references: [id])
+  postId    String
+  content   String   @db.VarChar(500)
+  createdAt DateTime @default(now())
+
+  reports Report[]
+
+  @@index([postId])
+}
+
+model Follow {
+  id          String   @id @default(uuid())
+  follower    User     @relation("Follower", fields: [followerId], references: [id])
+  followerId  String
+  followed    User     @relation("Followed", fields: [followedId], references: [id])
+  followedId  String
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followedId]) // empêche de suivre deux fois
+  @@index([followedId])
+}
+
+// ----------------------------
+// Votes (anti-fraude : 1 vote par user par cible)
+// ----------------------------
+
+enum VoteType {
+  LIKE_BOOST   // vote "classique" sur une publication pendant une période de classement
+  DUEL         // vote lors d'un duel à élimination directe
+}
+
+model Vote {
+  id         String   @id @default(uuid())
+  voter      User     @relation("VoterUser", fields: [voterId], references: [id])
+  voterId    String
+  post       Post?    @relation(fields: [postId], references: [id])
+  postId     String?
+  duel       Duel?    @relation(fields: [duelId], references: [id])
+  duelId     String?
+  votedForUserId String? // pour un duel : quel participant a reçu le vote
+  type       VoteType
+  ipHash     String?  // journalisation anti-fraude (IP hashée, jamais en clair)
+  deviceHash String?  // empreinte device, anti multi-comptes basique
+  createdAt  DateTime @default(now())
+
+  // Un utilisateur ne peut voter qu'une fois par duel
+  @@unique([voterId, duelId])
+  @@index([postId])
+  @@index([duelId])
+}
+
+// ----------------------------
+// Classement & compétition
+// ----------------------------
+
+enum StageName {
+  TOP_100
+  TOP_80
+  TOP_40
+  TOP_20
+  TOP_10
+  TOP_4
+  TOP_2
+  FINALE
+  TOP_1
+}
+
+model CompetitionPeriod {
+  id         String   @id @default(uuid())
+  label      String   // ex: "Saison 1 - 2026"
+  startedAt  DateTime @default(now())
+  endedAt    DateTime?
+  isActive   Boolean  @default(true)
+
+  // Paramétrable par l'admin, jamais codé en dur dans la logique métier :
+  initialStageDelayDays   Int @default(7)   // Top 100 après 1 semaine
+  stageReductionDelayDays Int @default(30)  // paliers suivants, tous les mois
+
+  stages  CompetitionStage[]
+  entries RankingEntry[]
+  duels   Duel[]
+}
+
+model CompetitionStage {
+  id          String    @id @default(uuid())
+  period      CompetitionPeriod @relation(fields: [periodId], references: [id])
+  periodId    String
+  name        StageName
+  order       Int       // 1 = TOP_100, 2 = TOP_80, ...
+  startedAt   DateTime  @default(now())
+  endedAt     DateTime?
+
+  entries RankingEntry[]
+  duels   Duel[]
+
+  @@unique([periodId, name])
+}
+
+// Score cumulatif : jamais remis à zéro entre paliers (cf. décision produit)
+model RankingEntry {
+  id         String   @id @default(uuid())
+  period     CompetitionPeriod @relation(fields: [periodId], references: [id])
+  periodId   String
+  stage      CompetitionStage  @relation(fields: [stageId], references: [id])
+  stageId    String
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  post       Post?    @relation(fields: [postId], references: [id])
+  postId     String?
+  totalScore Int      @default(0) // cumulatif depuis le début du cycle
+  position   Int?     // position calculée au sein du palier
+  isEliminated Boolean @default(false)
+  updatedAt  DateTime @updatedAt
+
+  @@unique([periodId, userId])
+  @@index([stageId, position])
+}
+
+// ----------------------------
+// Duels (phases avancées)
+// ----------------------------
+
+enum DuelStatus {
+  ONGOING
+  FINISHED
+}
+
+model Duel {
+  id             String     @id @default(uuid())
+  period         CompetitionPeriod @relation(fields: [periodId], references: [id])
+  periodId       String
+  stage          CompetitionStage  @relation(fields: [stageId], references: [id])
+  stageId        String
+  participantA   User       @relation("DuelParticipantA", fields: [participantAId], references: [id])
+  participantAId String
+  participantB   User       @relation("DuelParticipantB", fields: [participantBId], references: [id])
+  participantBId String
+  winner         User?      @relation("DuelWinner", fields: [winnerId], references: [id])
+  winnerId       String?
+  status         DuelStatus @default(ONGOING)
+  votingEndsAt   DateTime
+  createdAt      DateTime   @default(now())
+
+  votes Vote[]
+
+  @@index([stageId])
+}
+
+// ----------------------------
+// Notifications
+// ----------------------------
+
+enum NotificationType {
+  NEW_FOLLOWER
+  LIKE
+  COMMENT
+  VOTE
+  RANKING_CHANGE
+  QUALIFICATION
+  ELIMINATION
+  DUEL_RESULT
+  FINALE
+  ANNOUNCEMENT
+}
+
+model Notification {
+  id          String           @id @default(uuid())
+  recipient   User             @relation("NotificationRecipient", fields: [recipientId], references: [id])
+  recipientId String
+  type        NotificationType
+  message     String
+  relatedId   String?          // id du post/duel/user concerné, selon le type
+  isRead      Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+
+  @@index([recipientId, isRead])
+}
+
+// ----------------------------
+// Modération
+// ----------------------------
+
+enum ReportReason {
+  SPAM
+  HARASSMENT
+  HATE_SPEECH
+  NUDITY
+  VIOLENCE
+  FALSE_INFORMATION
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED_ACCEPTED
+  REVIEWED_REJECTED
+}
+
+model Report {
+  id            String       @id @default(uuid())
+  reportedBy    User         @relation("ReportedBy", fields: [reportedById], references: [id])
+  reportedById  String
+  reportedUser  User?        @relation("ReportedUser", fields: [reportedUserId], references: [id])
+  reportedUserId String?
+  post          Post?        @relation(fields: [postId], references: [id])
+  postId        String?
+  comment       Comment?     @relation(fields: [commentId], references: [id])
+  commentId     String?
+  reason        ReportReason
+  details       String?
+  status        ReportStatus @default(PENDING)
+  createdAt     DateTime     @default(now())
+
+  @@index([status])
+}
+
+model BlockedUser {
+  id         String   @id @default(uuid())
+  blocker    User     @relation("Blocker", fields: [blockerId], references: [id])
+  blockerId  String
+  blocked    User     @relation("Blocked", fields: [blockedId], references: [id])
+  blockedId  String
+  createdAt  DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+}
+
+enum AdminActionType {
+  SUSPEND_USER
+  DELETE_POST
+  DELETE_COMMENT
+  RESOLVE_REPORT
+  ADJUST_RANKING
+  ANNOUNCEMENT
+}
+
+model AdminAction {
+  id           String          @id @default(uuid())
+  admin        User            @relation("ActionedBy", fields: [adminId], references: [id])
+  adminId      String
+  type         AdminActionType
+  targetId     String?         // id de l'entité concernée (user/post/comment/report...)
+  details      String?
+  createdAt    DateTime        @default(now())
+
+  @@index([adminId])
+}

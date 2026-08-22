@@ -1,0 +1,35 @@
+name: Restore SELEBREO database to Neon
+
+on:
+  workflow_dispatch:
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Récupérer le projet
+        uses: actions/checkout@v4
+
+      - name: Installer PostgreSQL 16
+        run: |
+          sudo apt update
+          sudo apt install -y postgresql-client-16
+
+      - name: Restaurer la base vers Neon
+        env:
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: |
+          pg_restore \
+            --dbname="$NEON_DATABASE_URL" \
+            --no-owner \
+            --no-acl \
+            --clean \
+            --if-exists \
+            selebreo_backup.dump
+
+      - name: Vérifier la restauration
+        env:
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: |
+          psql "$NEON_DATABASE_URL" -c "\dt"

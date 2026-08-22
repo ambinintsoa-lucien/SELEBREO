@@ -1,0 +1,24 @@
+{
+  "colors": {
+    "noirProfond": "#0B0B0B",
+    "blancCasse": "#F7F7F5",
+    "jauneSelebreo": "#FFD43B",
+    "grisClair": "#E8E8E6",
+    "grisFonce": "#6B6B6B",
+    "blanc": "#FFFFFF"
+  },
+  "logo": {
+    "wordmark": "SELEBREO",
+    "style": "moitié \"SELE\" en blanc, moitié \"BREO\" en jaune SELEBREO",
+    "usage": "Splash Screen et écran Login uniquement"
+  },
+  "icon": {
+    "glyph": "S",
+    "background": "#0B0B0B",
+    "foreground": "#FFD43B"
+  },
+  "navigation": {
+    "sections": ["Accueil", "Classement", "Créer", "Notifications", "Profil"],
+    "createButton": "mis en évidence, centré, cercle jaune"
+  }
+}

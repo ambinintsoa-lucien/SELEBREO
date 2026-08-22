@@ -1,0 +1,40 @@
+# Dépendances
+node_modules/
+**/node_modules/
+
+# Env
+.env
+**/.env
+!.env.example
+!**/.env.example
+
+# Build
+frontend/dist/
+backend/dist/
+
+# Capacitor (généré, ne pas committer un projet Android complet à la main)
+frontend/android/
+frontend/ios/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Éditeurs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Prisma
+backend/prisma/*.db
+
+# Uploads utilisateurs
+backend/uploads/videos/*
+!backend/uploads/videos/.gitkeep
+backend/uploads/avatars/*
+
+# Backups PostgreSQL
+*.dump
