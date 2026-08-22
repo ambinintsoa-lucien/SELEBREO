@@ -24,6 +24,8 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
+          DATABASE_URL="$(printf '%s' "$DATABASE_URL" | sed 's/&channel_binding=require//')"
+
           pg_restore \
             --dbname="$DATABASE_URL" \
             --no-owner \
