@@ -1,5 +1,8 @@
 import { z } from "zod";
 import { prisma } from "../config/db.js";
+const commentSchema = z.object({
+  content: z.string().trim().min(1, "Le commentaire ne peut pas être vide.").max(500, "Le commentaire est trop long."),
+});
 
 /** GET /api/posts — fil d'actualité (paginé) */
 export async function listPosts(req, res, next) {
