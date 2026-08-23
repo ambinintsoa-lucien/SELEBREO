@@ -12,16 +12,48 @@ export async function listPosts(req, res, next) {
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
       orderBy: { createdAt: "desc" },
       where: { visibility: "PUBLIC" },
+
       include: {
-        author: { select: { id: true, username: true, avatarUrl: true } },
+        author: {
+          select: {
+            id: true,
+            username: true,
+            avatarUrl: true,
+          },
+        },
+
         category: true,
-        _count: { select: { likes: true, comments: true, votes: true } },
+
+        likes: {
+          where: {
+            userId: req.user?.id,
+          },
+          select: {
+            id: true,
+          },
+        },
+
+        _count: {
+          select: {
+            likes: true,
+            comments: true,
+            votes: true,
+          },
+        },
       },
     });
 
     res.json({
-      posts,
-      nextCursor: posts.length === take ? posts[posts.length - 1].id : null,
+      posts: posts.map((post) => ({
+        ...post,
+        liked: post.likes.length > 0,
+        likes: undefined,
+      })),
+
+      nextCursor:
+        posts.length === take
+          ? posts[posts.length - 1].id
+          : null,
     });
   } catch (err) {
     next(err);
@@ -86,13 +118,28 @@ export async function deletePost(req, res, next) {
 /** POST /api/posts/:id/like */
 export async function likePost(req, res, next) {
   try {
-    const post = await prisma.post.findUnique({ where: { id: req.params.id } });
-    if (!post) return res.status(404).json({ error: "Publication introuvable." });
+    const post = await prisma.post.findUnique({
+      where: { id: req.params.id },
+    });
+
+    if (!post) {
+      return res.status(404).json({
+        error: "Publication introuvable.",
+      });
+    }
 
     await prisma.like.upsert({
-      where: { userId_postId: { userId: req.user.id, postId: post.id } },
+      where: {
+        userId_postId: {
+          userId: req.user.id,
+          postId: post.id,
+        },
+      },
       update: {},
-      create: { userId: req.user.id, postId: post.id },
+      create: {
+        userId: req.user.id,
+        postId: post.id,
+      },
     });
 
     if (post.authorId !== req.user.id) {
@@ -105,7 +152,15 @@ export async function likePost(req, res, next) {
         },
       });
     }
-    res.status(204).send();
+
+    const likes = await prisma.like.count({
+      where: { postId: post.id },
+    });
+
+    res.json({
+      liked: true,
+      likes,
+    });
   } catch (err) {
     next(err);
   }
@@ -114,16 +169,25 @@ export async function likePost(req, res, next) {
 /** DELETE /api/posts/:id/like */
 export async function unlikePost(req, res, next) {
   try {
-    await prisma.like.deleteMany({ where: { userId: req.user.id, postId: req.params.id } });
-    res.status(204).send();
+    await prisma.like.deleteMany({
+      where: {
+        userId: req.user.id,
+        postId: req.params.id,
+      },
+    });
+
+    const likes = await prisma.like.count({
+      where: { postId: req.params.id },
+    });
+
+    res.json({
+      liked: false,
+      likes,
+    });
   } catch (err) {
     next(err);
   }
 }
-
-const commentSchema = z.object({
-  content: z.string().min(1).max(500),
-});
 
 /** POST /api/posts/:id/comments */
 export async function addComment(req, res, next) {
