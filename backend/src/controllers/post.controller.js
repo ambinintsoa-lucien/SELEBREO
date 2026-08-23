@@ -214,6 +214,7 @@ export async function addComment(req, res, next) {
 
     res.status(201).json(comment);
   } catch (err) {
+    console.error("ERREUR ADD COMMENT :", err);
     next(err);
   }
 }
