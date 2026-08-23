@@ -11,8 +11,13 @@
   }
 
   body {
-    @apply bg-[#050505] text-blanc;
-    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    @apply text-blanc;
+    /* Léger dégradé radial chaud en haut, comme sur le Splash — plus "vivant"
+       qu'un simple aplat noir, sans nuire à la lisibilité du contenu. */
+    background: radial-gradient(circle at 50% 0%, #1a1206 0%, #050505 55%);
+    font-family: "Inter", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
   }
 }
@@ -42,6 +47,7 @@
 
   .btn-primary {
     @apply w-full h-[52px] bg-jaune text-noir font-bold rounded-xl active:opacity-85 disabled:opacity-50;
+    box-shadow: 0 4px 16px rgba(255, 212, 59, 0.25);
   }
 
   .btn-secondary {
@@ -54,6 +60,15 @@
 
   .card {
     @apply bg-surface rounded-card p-3.5;
+  }
+
+  /* Barre supérieure toujours visible — même principe que .bottom-nav :
+     fixed + centrage manuel, insensible à ce que fait le cadre autour. */
+  .top-nav {
+    @apply fixed top-0 left-1/2 bg-noir/95 backdrop-blur border-b border-white/10;
+    width: min(100%, 430px);
+    transform: translateX(-50%);
+    z-index: 1000;
   }
 
   /* Menu inférieur toujours visible */
@@ -72,8 +87,18 @@
     @apply text-jaune;
   }
 
+  /* Pastille de fond derrière l'icône active — rend l'état actif immédiatement
+     lisible (comme sur Instagram/TikTok), sans changer les routes/comportements. */
+  .nav-icon-wrap {
+    @apply flex items-center justify-center w-9 h-9 rounded-full transition-colors;
+  }
+
+  .nav-icon-wrap--active {
+    @apply bg-jaune/10;
+  }
+
   .bottom-nav .create-btn {
-    @apply bg-jaune text-noir w-12 h-12 rounded-full flex items-center justify-center text-2xl font-black -mt-6;
+    @apply bg-noir text-jaune border-2 border-jaune w-12 h-12 rounded-full flex items-center justify-center -mt-6;
   }
 
   .avatar {
@@ -82,5 +107,10 @@
 
   .back-btn {
     @apply bg-transparent border-none text-blanc text-xl cursor-pointer w-8 text-left;
+  }
+
+  /* Petite pastille de thème/catégorie, réutilisable partout où une catégorie s'affiche */
+  .theme-pill {
+    @apply inline-flex items-center text-[11px] font-semibold text-jaune bg-jaune/10 border border-jaune/25 px-2 py-0.5 rounded-full;
   }
 }
