@@ -12,9 +12,7 @@
 
   body {
     @apply text-blanc;
-    /* Léger dégradé radial chaud en haut, comme sur le Splash — plus "vivant"
-       qu'un simple aplat noir, sans nuire à la lisibilité du contenu. */
-    background: radial-gradient(circle at 50% 0%, #1a1206 0%, #050505 55%);
+    background: #FFFFFF;
     font-family: "Inter", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

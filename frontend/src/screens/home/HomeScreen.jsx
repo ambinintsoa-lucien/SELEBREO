@@ -13,6 +13,9 @@ export default function HomeScreen() {
   const [actionLoading, setActionLoading] = useState({});
   const [errors, setErrors] = useState({});
   const [shareMessages, setShareMessages] = useState({});
+  const [likedPosts, setLikedPosts] = useState({});
+  const [commentsByPost, setCommentsByPost] = useState({});
+  const [commentsLoading, setCommentsLoading] = useState({});
 
   const navigate = useNavigate();
 
@@ -61,31 +64,48 @@ export default function HomeScreen() {
 
     if (actionLoading[key]) return;
 
+    const currentlyLiked =
+      likedPosts[post.id] ?? post.liked ?? false;
+
     setActionLoading((prev) => ({
       ...prev,
       [key]: true,
     }));
 
     try {
-      await apiClient.post(`/api/posts/${post.id}/like`);
+      if (currentlyLiked) {
+        await apiClient.delete(`/api/posts/${post.id}/like`);
+      } else {
+        await apiClient.post(`/api/posts/${post.id}/like`);
+      }
+
+      setLikedPosts((prev) => ({
+        ...prev,
+        [post.id]: !currentlyLiked,
+      }));
 
       setPosts((prev) =>
-        prev.map((p) =>
-          p.id === post.id
-            ? {
-              ...p,
-              _count: {
-                ...p._count,
-                likes: p._count.likes + 1,
-              },
-            }
-            : p
-        )
+        prev.map((p) => {
+          if (p.id !== post.id) return p;
+
+          const currentLikes = Number(p._count?.likes || 0);
+
+          return {
+            ...p,
+            liked: !currentlyLiked,
+            _count: {
+              ...p._count,
+              likes: currentlyLiked
+                ? Math.max(0, currentLikes - 1)
+                : currentLikes + 1,
+            },
+          };
+        })
       );
     } catch (err) {
       const message =
         err.response?.data?.error ||
-        "Impossible d'aimer cette publication.";
+        "Impossible de modifier le like.";
 
       setPostError(post.id, message);
     } finally {
@@ -95,7 +115,6 @@ export default function HomeScreen() {
       }));
     }
   }
-
   // VOTE
   async function handleVote(post) {
     const key = `vote-${post.id}`;
@@ -165,9 +184,20 @@ export default function HomeScreen() {
     }));
 
     try {
-      await apiClient.post(`/api/posts/${post.id}/comments`, {
-        content,
-      });
+      const { data } = await apiClient.post(
+        `/api/posts/${post.id}/comments`,
+        {
+          content,
+        }
+      );
+
+      setCommentsByPost((prev) => ({
+        ...prev,
+        [post.id]: [
+          data,
+          ...(prev[post.id] || []),
+        ],
+      }));
 
       setPosts((prev) =>
         prev.map((p) =>
@@ -182,6 +212,7 @@ export default function HomeScreen() {
             : p
         )
       );
+
 
       setCommentText("");
       setCommentingPost(null);
@@ -199,12 +230,48 @@ export default function HomeScreen() {
     }
   }
 
-  function toggleComments(postId) {
+  async function toggleComments(postId) {
     setCommentText("");
 
-    setCommentingPost((current) =>
-      current === postId ? null : postId
-    );
+    // Fermer
+    if (commentingPost === postId) {
+      setCommentingPost(null);
+      return;
+    }
+
+    setCommentingPost(postId);
+
+    // Déjà chargé
+    if (commentsByPost[postId]) {
+      return;
+    }
+
+    setCommentsLoading((prev) => ({
+      ...prev,
+      [postId]: true,
+    }));
+
+    try {
+      const { data } = await apiClient.get(
+        `/api/posts/${postId}/comments`
+      );
+
+      setCommentsByPost((prev) => ({
+        ...prev,
+        [postId]: data,
+      }));
+    } catch (err) {
+      setPostError(
+        postId,
+        err.response?.data?.error ||
+        "Impossible de charger les commentaires."
+      );
+    } finally {
+      setCommentsLoading((prev) => ({
+        ...prev,
+        [postId]: false,
+      }));
+    }
   }
 
   // PARTAGE — nouvelle fonctionnalité demandée : partage natif si disponible
@@ -390,7 +457,21 @@ export default function HomeScreen() {
                       disabled:opacity-50
                     "
                   >
-                    <Heart size={17} strokeWidth={2.25} className="text-[#FF5C7A]" />
+                    <Heart
+                      size={17}
+                      strokeWidth={2.25}
+                      fill={
+                        likedPosts[post.id] ?? post.liked
+                          ? "currentColor"
+                          : "none"
+                      }
+                      className={
+                        likedPosts[post.id] ?? post.liked
+                          ? "text-[#FF5C7A]"
+                          : "text-white"
+                      }
+                    />
+
                     <span>
                       {post._count.likes}
                     </span>
@@ -459,19 +540,69 @@ export default function HomeScreen() {
 
                 {/* COMMENTAIRE */}
                 {commentingPost === post.id && (
-                  <form
-                    onSubmit={(e) => handleCommentSubmit(e, post)}
-                    className="flex gap-2 mt-3 animate-[fadeIn_0.15s_ease-out]"
-                  >
+                  <div className="mt-4">
 
-                    <input
-                      type="text"
-                      value={commentText}
-                      onChange={(e) => setCommentText(e.target.value)}
-                      placeholder="Écrire un commentaire..."
-                      maxLength={500}
-                      autoFocus
-                      className="
+                    <div className="mb-3">
+                      <p className="text-sm font-bold text-white">
+                        Commentaires
+                        <span className="text-grisfonce ml-1">
+                          ({post._count.comments})
+                        </span>
+                      </p>
+                    </div>
+
+                    {commentsLoading[post.id] && (
+                      <p className="text-xs text-grisfonce py-3">
+                        Chargement des commentaires...
+                      </p>
+                    )}
+
+                    {!commentsLoading[post.id] &&
+                      commentsByPost[post.id]?.length === 0 && (
+                        <p className="text-xs text-grisfonce py-3">
+                          Aucun commentaire pour le moment.
+                        </p>
+                      )}
+
+                    {commentsByPost[post.id]?.length > 0 && (
+                      <div className="flex flex-col gap-3 max-h-72 overflow-y-auto mb-3">
+                        {commentsByPost[post.id].map((comment) => (
+                          <div
+                            key={comment.id}
+                            className="flex gap-2.5 rounded-xl bg-white/5 border border-white/5 p-3"
+                          >
+                            <UserAvatar
+                              user={comment.user}
+                              size={32}
+                            />
+
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-bold text-white">
+                                @{comment.user.username}
+                              </p>
+
+                              <p className="text-sm text-white/80 mt-1 break-words">
+                                {comment.content}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <form
+                      onSubmit={(e) => handleCommentSubmit(e, post)}
+                      className="flex gap-2 mt-3 animate-[fadeIn_0.15s_ease-out]"
+                    >
+
+                      <input
+                        type="text"
+                        value={commentText}
+                        onChange={(e) => setCommentText(e.target.value)}
+                        placeholder="Écrire un commentaire..."
+                        maxLength={500}
+                        autoFocus
+                        className="
                         flex-1
                         h-11
                         px-4
@@ -485,15 +616,15 @@ export default function HomeScreen() {
                         focus:bg-white/[0.07]
                         transition-colors
                       "
-                    />
+                      />
 
-                    <button
-                      type="submit"
-                      disabled={
-                        !commentText.trim() ||
-                        actionLoading[`comment-${post.id}`]
-                      }
-                      className="
+                      <button
+                        type="submit"
+                        disabled={
+                          !commentText.trim() ||
+                          actionLoading[`comment-${post.id}`]
+                        }
+                        className="
                         w-11
                         h-11
                         rounded-2xl
@@ -506,15 +637,17 @@ export default function HomeScreen() {
                         transition-all
                         disabled:opacity-40
                       "
-                    >
-                      {actionLoading[`comment-${post.id}`] ? (
-                        "..."
-                      ) : (
-                        <Send size={16} strokeWidth={2.5} />
-                      )}
-                    </button>
+                      >
+                        {actionLoading[`comment-${post.id}`] ? (
+                          "..."
+                        ) : (
+                          <Send size={16} strokeWidth={2.5} />
+                        )}
+                      </button>
 
-                  </form>
+                    </form>
+
+                  </div>
                 )}
 
               </div>
