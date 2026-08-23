@@ -6,8 +6,8 @@ import { prisma } from "./config/db.js";
 
 const PORT = process.env.PORT || 4000;
 
-app.listen(PORT, async () => {
-  console.log(`SELEBREO backend en écoute sur http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", async () => {
+  console.log(`SELEBREO backend en écoute sur le port ${PORT}`);
 
   try {
     await initRanking();
