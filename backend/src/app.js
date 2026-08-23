@@ -26,9 +26,26 @@ export const app = express();
 // le frontend (autre origine en dev) puisse afficher les vidéos.
 app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(morgan("dev"));
+const allowedOrigins = [
+  "https://selebreo.vercel.app",
+  "http://localhost:5173",
+];
+
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || "http://localhost:5173",
+    origin: (origin, callback) => {
+      // Autoriser les requêtes sans Origin
+      // (Postman, certains outils backend, etc.)
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Origine non autorisée par CORS"));
+    },
     credentials: true,
   })
 );
