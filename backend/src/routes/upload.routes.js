@@ -9,8 +9,6 @@ import fs from "node:fs/promises";
 
 const router = Router();
 
-const BUCKET = "selebreo-media";
-
 /* =========================
    UPLOAD VIDÉO
    ========================= */
@@ -27,11 +25,11 @@ router.post(
         });
       }
 
-      const filePath = `videos/${req.file.filename}`;
+      const filePath = req.file.filename;
       const fileBuffer = await fs.readFile(req.file.path);
 
       const { error } = await supabase.storage
-        .from(BUCKET)
+        .from("videos")
         .upload(filePath, fileBuffer, {
           contentType: req.file.mimetype,
           upsert: false,
@@ -40,15 +38,16 @@ router.post(
       await fs.unlink(req.file.path).catch(() => { });
 
       if (error) {
-        console.error("Erreur Supabase vidéo :", error);
+        console.error("Erreur stockage Supabase vidéo :", error);
 
         return res.status(500).json({
-          error: "Échec de l'envoi de la vidéo vers Supabase.",
+          error: "Échec de l'envoi de vidéo vers Supabase.",
+          details: error.message,
         });
       }
 
       const { data } = supabase.storage
-        .from(BUCKET)
+        .from("videos")
         .getPublicUrl(filePath);
 
       return res.status(201).json({
@@ -77,11 +76,11 @@ router.post(
         });
       }
 
-      const filePath = `avatars/${req.file.filename}`;
+      const filePath = req.file.filename;
       const fileBuffer = await fs.readFile(req.file.path);
 
       const { error } = await supabase.storage
-        .from(BUCKET)
+        .from("avatars")
         .upload(filePath, fileBuffer, {
           contentType: req.file.mimetype,
           upsert: false,
@@ -90,15 +89,16 @@ router.post(
       await fs.unlink(req.file.path).catch(() => { });
 
       if (error) {
-        console.error("Erreur Supabase avatar :", error);
+        console.error("Erreur stockage Supabase avatar :", error);
 
         return res.status(500).json({
           error: "Échec de l'envoi de l'avatar vers Supabase.",
+          details: error.message,
         });
       }
 
       const { data } = supabase.storage
-        .from(BUCKET)
+        .from("avatars")
         .getPublicUrl(filePath);
 
       return res.status(201).json({
