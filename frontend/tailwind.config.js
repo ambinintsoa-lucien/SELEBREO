@@ -9,7 +9,7 @@ export default {
         blanccasse: "#F7F7F5",
         jaune: "#FFD43B",
         grisclair: "#E8E8E6",
-        grisfonce: "#6B6B6B",
+        grisfonce: "#FFFFFF", // texte secondaire désormais en blanc partout (Accueil, Profil, Paramètres...)
         blanc: "#FFFFFF",
         surface: "#151515", // fond de carte, dérivé du noir profond
       },
